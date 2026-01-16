@@ -1,28 +1,35 @@
+#include <assert.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <unistd.h>
 #include <time.h>
+#include <unistd.h>
 
-#define BOARD_WIDTH 160
-#define BOARD_HEIGHT 40
-#define FPS 8
+#define BOARD_WIDTH 120
+#define BOARD_HEIGHT 36
+#define FPS 22
 
 static char LIVE = '@';
 static char DEAD = ' ';
+static char CLEAR_TERM_ANSI[] = "\033[H\033[J";
 
 int idx(int i, int j) { return i * BOARD_WIDTH + j; }
 
-void print_board(char (*board)) {
-    for (int i = 1; i < BOARD_HEIGHT - 1; i++) {
-        for (int j = 1; j < BOARD_WIDTH - 1; j++) {
-            putc(board[idx(i, j)], stdout);
+void printBoard(char(*board)) {
+    write(STDOUT_FILENO, CLEAR_TERM_ANSI, sizeof(CLEAR_TERM_ANSI));
+    char boardStr[BOARD_HEIGHT * (BOARD_WIDTH + 1)];
+
+    for (int i = 0; i < BOARD_HEIGHT; i++) {
+        for (int j = 0; j < BOARD_WIDTH; j++) {
+            boardStr[i * (BOARD_WIDTH + 1) + j] = board[idx(i, j)];
         }
-        printf("\n");
+        boardStr[i * (BOARD_WIDTH + 1) + BOARD_WIDTH] = '\n';
     }
+
+    write(STDOUT_FILENO, boardStr, BOARD_HEIGHT * (BOARD_WIDTH + 1));
 }
 
-int get_neighbors(char *board, int i, int j) {
+int countNeighbors(char *board, int i, int j) {
     int neighbors = 0;
 
     for (int r = i - 1; r <= i + 1; r++) {
@@ -39,8 +46,8 @@ int get_neighbors(char *board, int i, int j) {
     return neighbors;
 }
 
-char calc_evo(char *board, int i, int j) {
-    int neighbors = get_neighbors(board, i, j);
+char clacEvo(char *board, int i, int j) {
+    int neighbors = countNeighbors(board, i, j);
 
     if (board[idx(i, j)] == LIVE) {
         if (neighbors < 2 || neighbors > 3) {
@@ -57,22 +64,11 @@ char calc_evo(char *board, int i, int j) {
     }
 }
 
-void clear_board_boarder(char *board) {
-    for (int i = 0; i < BOARD_HEIGHT; i++) {
-        board[idx(i, 0)] = DEAD;
-        board[idx(i, BOARD_WIDTH - 1)] = DEAD;
-    }
-    for (int j = 0; j < BOARD_WIDTH; j++) {
-        board[idx(0, j)] = DEAD;
-        board[idx(BOARD_HEIGHT - 1, j)] = DEAD;
-    }
-}
-
 void move(char *board) {
     char new_board[(BOARD_HEIGHT + 2) * (BOARD_WIDTH + 2)] = {};
     for (int i = 1; i < BOARD_HEIGHT + 1; i++) {
         for (int j = 1; j < BOARD_WIDTH + 1; j++) {
-            new_board[idx(i, j)] = calc_evo(board, i, j);
+            new_board[idx(i, j)] = clacEvo(board, i, j);
         }
     }
     for (int i = 1; i < BOARD_HEIGHT + 1; i++) {
@@ -80,13 +76,11 @@ void move(char *board) {
             board[idx(i, j)] = new_board[idx(i, j)];
         }
     }
-
-    clear_board_boarder(board);
 }
 
 int main() {
-    char board[(BOARD_HEIGHT + 2) * (BOARD_WIDTH + 2)] = {};
-    memset(board, DEAD, (BOARD_WIDTH + 2) * (BOARD_HEIGHT + 2));
+    char board[BOARD_HEIGHT * BOARD_WIDTH] = {};
+    memset(board, DEAD, BOARD_WIDTH * BOARD_HEIGHT);
 
     board[idx(11, 60)] = LIVE;
     board[idx(12, 60)] = LIVE;
@@ -96,12 +90,12 @@ int main() {
 
     clock_t start;
     double rate = 1.0 / FPS;
-    
+
     while (1) {
         start = clock();
-        system("clear");
-        print_board(board);
+        printBoard(board);
         move(board);
-        while ((double)((clock() - start))/CLOCKS_PER_SEC < rate) {}
+        while ((double)((clock() - start)) / CLOCKS_PER_SEC < rate) {
+        }
     }
 }
